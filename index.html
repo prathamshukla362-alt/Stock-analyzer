@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0a1020" />
+<title>Stock Analyzer & Risk</title>
+<style>
+  :root {
+    --bg: #0a1020;
+    --topbar: rgba(10, 16, 32, .72);
+    --card: rgba(22, 32, 52, .8);
+    --card-solid: #162034;
+    --card-2: #1d2a44;
+    --text: #e6edf7;
+    --muted: #8b9bb4;
+    --accent: #38bdf8;
+    --accent-soft: rgba(56, 189, 248, .14);
+    --grad: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    --good: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --border: rgba(148, 163, 184, .14);
+    --shadow: 0 18px 40px -22px rgba(0, 0, 0, .7);
+    color-scheme: dark;
+  }
+  html[data-theme="light"] {
+    --bg: #eef3f9;
+    --topbar: rgba(255, 255, 255, .8);
+    --card: rgba(255, 255, 255, .94);
+    --card-solid: #ffffff;
+    --card-2: #eef2f7;
+    --text: #0f172a;
+    --muted: #5b6b82;
+    --accent: #0369a1;
+    --accent-soft: rgba(3, 105, 161, .12);
+    --grad: linear-gradient(135deg, #0369a1 0%, #6d28d9 100%);
+    --good: #15803d;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --border: rgba(15, 23, 42, .1);
+    --shadow: 0 18px 36px -24px rgba(15, 23, 42, .35);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    color: var(--text);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(900px 500px at 0% -10%, var(--accent-soft), transparent 60%),
+      radial-gradient(800px 500px at 100% 0%, rgba(129, 140, 248, .14), transparent 55%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px;
+    background: var(--topbar);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 11px; flex: none;
+    background: var(--grad); color: #fff;
+    display: grid; place-items: center; font-weight: 800; font-size: 13px; letter-spacing: .5px;
+    box-shadow: 0 8px 18px -8px var(--accent);
+  }
+  .brand h1 { font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .back-btn {
+    display: none; width: 36px; height: 36px; border-radius: 12px; flex: none;
+    background: var(--card-2); border: 1px solid var(--border); color: var(--text);
+    font-size: 20px; line-height: 1; cursor: pointer; place-items: center;
+  }
+  .back-btn.show { display: grid; }
+
+  main { max-width: 900px; margin: 0 auto; padding: 14px 16px 24px; }
+  .page { display: none; }
+  .page.active { display: block; animation: fadeUp .28s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- bottom navigation ---------- */
+  .bottom-nav {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    width: min(calc(100% - 24px), 560px);
+    z-index: 20;
+    display: flex; justify-content: space-around;
+    padding: 6px;
+    background: var(--card);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border); border-radius: 22px;
+    box-shadow: var(--shadow);
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 0; background: none; border: none; border-radius: 16px;
+    color: var(--muted); font-size: 11px; cursor: pointer;
+  }
+  .nav-item .ico {
+    width: 44px; height: 28px; border-radius: 14px;
+    display: grid; place-items: center; transition: background .2s;
+  }
+  .nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-item.active { color: var(--accent); font-weight: 600; }
+  .nav-item.active .ico { background: var(--accent-soft); }
+
+  /* ---------- cards & sections ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .card.clickable { cursor: pointer; transition: transform .15s, border-color .15s; }
+  .card.clickable:active { transform: scale(.985); }
+  @media (hover: hover) { .card.clickable:hover { border-color: var(--accent); } }
+  .section-title {
+    font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .8px; font-weight: 600; margin: 20px 4px 10px;
+  }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+  .muted { color: var(--muted); }
+  .up { color: var(--good); }
+  .down { color: var(--bad); }
+  .na { color: var(--muted); font-style: italic; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 16px; font-size: 14px; }
+  .disclaimer { font-size: 11px; color: var(--muted); line-height: 1.6; text-align: center; margin-top: 22px; }
+  .notice {
+    font-size: 12px; color: var(--muted); line-height: 1.55;
+    padding: 12px 14px; margin-top: 12px; border-radius: 14px; background: var(--card-2);
+  }
+
+  /* ---------- hero (gradient banner) ---------- */
+  .hero {
+    position: relative; overflow: hidden;
+    color: #fff; border-radius: 22px; padding: 18px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 60%, #8b5cf6 100%);
+    box-shadow: 0 22px 44px -24px rgba(99, 102, 241, .8);
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -60px; top: -60px; width: 200px; height: 200px;
+    border-radius: 50%; background: rgba(255, 255, 255, .12);
+  }
+  .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; position: relative; z-index: 1; }
+  .hero-kicker { font-size: 12px; opacity: .85; text-transform: uppercase; letter-spacing: .8px; }
+  .hero-title { font-size: 24px; font-weight: 800; margin-top: 4px; }
+  .hero-sub { font-size: 13px; opacity: .85; margin-top: 2px; }
+  .hero-tag { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .2); white-space: nowrap; }
+  .hero-price { font-size: 34px; font-weight: 800; margin-top: 12px; position: relative; z-index: 1; }
+  .hero-delta { font-size: 13px; opacity: .9; margin-top: 2px; position: relative; z-index: 1; }
+  .hero-row { display: flex; justify-content: space-around; gap: 8px; margin-top: 14px; position: relative; z-index: 1; }
+  .verdict-hero {
+    margin-top: 14px; padding: 10px 12px; border-radius: 12px; font-size: 13px;
+    background: rgba(255, 255, 255, .16); position: relative; z-index: 1;
+  }
+
+  /* ---------- gauges ---------- */
+  .gauge { width: 140px; text-align: center; }
+  .gauge svg { width: 100%; display: block; overflow: visible; }
+  .gauge-val { font-size: 26px; font-weight: 800; margin-top: -8px; }
+  .gauge-cap { font-size: 12px; margin-top: 2px; }
+
+  /* ---------- donut ---------- */
+  .split-card { display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; }
+  .donut { position: relative; width: 160px; height: 160px; flex: none; }
+  .donut svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .donut-center b { font-size: 26px; font-weight: 800; }
+  .donut-center span { font-size: 11px; color: var(--muted); }
+  .legend { display: flex; flex-direction: column; gap: 12px; font-size: 14px; min-width: 150px; }
+  .legend div { display: flex; align-items: center; gap: 8px; }
+  .legend b { margin-left: auto; padding-left: 14px; }
+  .dot-c { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  /* ---------- stat tiles ---------- */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); }
+  .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .stat .n { font-size: 24px; font-weight: 800; margin-top: 6px; }
+
+  /* ---------- stock cards ---------- */
+  .cards-grid { display: block; }
+  .stock-head { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 42px; height: 42px; border-radius: 14px; flex: none;
+    background: var(--grad); color: #fff;
+    display: grid; place-items: center; font-weight: 800; font-size: 13px;
+  }
+  .stock-meta { flex: 1; min-width: 0; }
+  .ticker { font-weight: 700; font-size: 16px; }
+  .name { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .price-col { text-align: right; flex: none; }
+  .price { font-weight: 700; font-size: 16px; }
+  .delta { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 8px; margin-top: 4px; }
+  .delta.up { background: rgba(52, 211, 153, .14); }
+  .delta.down { background: rgba(248, 113, 113, .14); }
+  .delta.flat { background: var(--card-2); color: var(--muted); }
+  .stock-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .mini-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .mini-label b { color: var(--text); font-weight: 700; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+
+  /* ---------- bars ---------- */
+  .bar { height: 8px; border-radius: 999px; background: var(--card-2); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--grad); }
+  .brow { display: grid; grid-template-columns: 70px 1fr 48px; gap: 12px; align-items: center; padding: 7px 0; font-size: 13px; }
+  .brow b { text-align: right; font-weight: 700; }
+  .blabel { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---------- 52-week range ---------- */
+  .range { position: relative; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--card-2), var(--accent-soft)); margin: 24px 0 10px; }
+  .range .dot {
+    position: absolute; top: 50%; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--grad); border: 3px solid var(--card-solid);
+    transform: translate(-50%, -50%); box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .range-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); gap: 6px; }
+
+  /* ---------- badges ---------- */
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.low { background: rgba(52, 211, 153, .14); color: var(--good); }
+  .badge.moderate { background: rgba(251, 191, 36, .14); color: var(--warn); }
+  .badge.high { background: rgba(248, 113, 113, .14); color: var(--bad); }
+  .badge.unknown { background: rgba(148, 163, 184, .14); color: var(--muted); }
+
+  /* ---------- metrics ---------- */
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .metric { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px; box-shadow: var(--shadow); }
+  .metric .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .metric .value { font-size: 17px; font-weight: 700; margin-top: 5px; }
+  .metric .src { font-size: 10px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+  /* ---------- notes ---------- */
+  .note { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.5; }
+  .note:last-child { border-bottom: none; padding-bottom: 0; }
+  .note i { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; }
+
+  /* ---------- controls ---------- */
+  .search-row { display: flex; gap: 10px; align-items: center; }
+  .search-wrap { position: relative; flex: 1; }
+  .search-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
+  .search {
+    width: 100%; padding: 13px 14px 13px 42px; border-radius: 14px;
+    border: 1px solid var(--border); background: var(--card-solid); color: var(--text);
+    font-size: 15px; outline: none; text-transform: uppercase;
+  }
+  .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .btn {
+    padding: 13px 18px; border-radius: 14px; border: none; cursor: pointer;
+    background: var(--grad); color: #fff; font-weight: 700; font-size: 14px;
+    box-shadow: 0 10px 22px -12px var(--accent);
+  }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.full { width: 100%; margin-top: 12px; }
+  .pills { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 12px; scrollbar-width: none; }
+  .pills::-webkit-scrollbar { display: none; }
+  .pill {
+    flex: 0 0 auto; padding: 8px 14px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--muted); font-size: 13px; cursor: pointer;
+  }
+  .pill.active { background: var(--grad); color: #fff; border-color: transparent; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 8px 14px; border-radius: 12px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    font-size: 13px; font-weight: 700;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .seg { display: flex; gap: 4px; background: var(--card-2); border-radius: 14px; padding: 4px; }
+  .seg button {
+    flex: 1; padding: 10px 0; border: none; border-radius: 11px;
+    background: transparent; color: var(--muted); font-size: 14px; cursor: pointer;
+  }
+  .seg button.active { background: var(--card-solid); color: var(--text); font-weight: 700; box-shadow: 0 2px 8px -3px rgba(0, 0, 0, .35); }
+  .field { display: block; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .field input {
+    width: 100%; margin-top: 6px; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--card-solid); color: var(--text); font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .row-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .row-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .row-item span.muted { font-size: 12px; text-align: right; }
+
+  /* ---------- SVG chart text & radar ---------- */
+  .axis { font-size: 10px; fill: var(--muted); }
+  .radar svg { width: 100%; max-width: 320px; display: block; margin: 0 auto; }
+  .split-chart { display: grid; gap: 12px; }
+
+  .hidden { display: none !important; }
+
+  /* ---------- wider screens ---------- */
+  @media (min-width: 720px) {
+    .stat-grid { grid-template-columns: repeat(4, 1fr); }
+    .cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cards-grid .card { margin-bottom: 0; }
+    .split-chart { grid-template-columns: 1fr 1fr; }
+    .metrics { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="back-btn" id="backBtn" aria-label="Back">‹</button>
+  <div class="brand">
+    <div class="logo">SA</div>
+    <h1 id="pageTitle">Dashboard</h1>
+  </div>
+</header>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <section class="page active" id="page-dashboard" data-title="Dashboard">
+    <div id="dashboardContent"></div>
+  </section>
+
+  <!-- WATCHLIST -->
+  <section class="page" id="page-home" data-title="Watchlist">
+    <div class="pills" data-group="home">
+      <button class="pill active" data-filter="all">All</button>
+      <button class="pill" data-filter="low">Low risk</button>
+      <button class="pill" data-filter="moderate">Moderate</button>
+      <button class="pill" data-filter="high">High risk</button>
+    </div>
+    <p class="hint">Sample stocks for demonstration. Use Lookup to fetch live data.</p>
+    <div class="cards-grid" id="list" style="margin-top:10px"></div>
+  </section>
+
+  <!-- LOOKUP -->
+  <section class="page" id="page-lookup" data-title="Lookup">
+    <div class="search-row">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="ticker" class="search" type="text" placeholder="Ticker, e.g. AAPL" autocomplete="off" autocapitalize="characters" />
+      </div>
+      <button id="lookupBtn" class="btn">Look up</button>
+    </div>
+    <p class="hint">Live lookups need a Financial Modeling Prep API key. Add it in Settings.</p>
+
+    <div class="section-title">Sample stocks</div>
+    <div class="card"><div class="chips" id="sampleChips"></div></div>
+
+    <div class="section-title" id="recentHeading">Recent live lookups</div>
+    <div id="recentList"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="page" id="page-history" data-title="History">
+    <div class="pills" data-group="history">
+      <button class="pill active" data-filter="all">All</button>
+      <button class="pill" data-filter="low">Low risk</button>
+      <button class="pill" data-filter="moderate">Moderate</button>
+      <button class="pill" data-filter="high">High risk</button>
+    </div>
+    <p class="hint">Live lookups from this session. Cleared when you close the page.</p>
+    <div id="historySummary"></div>
+    <div class="cards-grid" id="historyList" style="margin-top:10px"></div>
+    <div class="empty hidden" id="historyEmpty">No lookups yet. Search a ticker on the Lookup tab.</div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="page" id="page-settings" data-title="Settings">
+    <div class="section-title">Appearance</div>
+    <div class="card">
+      <div class="seg" id="themeSeg">
+        <button data-theme="dark">Dark</button>
+        <button data-theme="light">Light</button>
+        <button data-theme="system" class="active">System</button>
+      </div>
+      <p class="hint">System follows your device setting and updates automatically. Your choice lasts for this session.</p>
+    </div>
+
+    <div class="section-title">Data provider</div>
+    <div class="card">
+      <label class="field">Financial Modeling Prep API key
+        <input id="apiKey" type="password" placeholder="Paste your key" autocomplete="off" />
+      </label>
+      <button class="btn full" id="saveKeyBtn">Use this key</button>
+      <p class="hint" id="keyStatus">No key set. Live lookups are disabled.</p>
+      <p class="hint">The key is kept in memory for this session only and is never saved.</p>
+    </div>
+
+    <div class="section-title">About</div>
+    <div class="card">
+      <div class="row-item"><span>Provider</span><span class="muted">Financial Modeling Prep</span></div>
+      <div class="row-item"><span>Cache</span><span class="muted">15 minutes per ticker</span></div>
+      <div class="row-item"><span>Version</span><span class="muted">Redesign 2.0</span></div>
+    </div>
+
+    <p class="disclaimer">
+      Sample data is for illustration only. Live data comes from third-party providers and may be
+      delayed or incomplete. Scores are rule-based indicators, not financial advice. Verify figures
+      with the source before investing.
+    </p>
+  </section>
+
+  <!-- DETAIL -->
+  <section class="page" id="page-detail" data-title="Stock detail">
+    <div id="detailContent"></div>
+  </section>
+
+</main>
+
+<nav class="bottom-nav" id="bottomNav">
+  <button class="nav-item active" data-page="dashboard">
+    <span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+    <span>Dashboard</span>
+  </button>
+  <button class="nav-item" data-page="home">
+    <span class="ico"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+    <span>Watchlist</span>
+  </button>
+  <button class="nav-item" data-page="lookup">
+    <span class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span>
+    <span>Lookup</span>
+  </button>
+  <button class="nav-item" data-page="history">
+    <span class="ico"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+    <span>History</span>
+  </button>
+  <button class="nav-item" data-page="settings">
+    <span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+    <span>Settings</span>
+  </button>
+</nav>
+
+<script>
+/* =========================================================
+   CONFIG + SAMPLE DATA
+   ========================================================= */
+const PROVIDER = { name: "Financial Modeling Prep", base: "https://financialmodelingprep.com/api/v3" };
+const TABS = ["dashboard", "home", "lookup", "history", "settings"];
+
+const SAMPLE = [
+  { ticker: "AAPL", name: "Apple Inc.", sector: "Technology", price: 228.4, prevClose: 226.1,
+    pe: 34.2, epsGrowth: 9.5, divYield: 0.5, debtToEquity: 1.7, roe: 147, margin: 25.3,
+    high52: 260.1, low52: 169.2, beta: 1.2, volatility: 24, maxDrawdown: -31 },
+  { ticker: "MSFT", name: "Microsoft Corp.", sector: "Technology", price: 415.7, prevClose: 412.3,
+    pe: 36.8, epsGrowth: 14.2, divYield: 0.8, debtToEquity: 0.4, roe: 38, margin: 36.0,
+    high52: 468.4, low52: 344.8, beta: 0.9, volatility: 21, maxDrawdown: -22 },
+  { ticker: "JNJ", name: "Johnson & Johnson", sector: "Healthcare", price: 158.9, prevClose: 159.6,
+    pe: 15.4, epsGrowth: 3.1, divYield: 3.1, debtToEquity: 0.5, roe: 27, margin: 22.4,
+    high52: 175.9, low52: 140.2, beta: 0.4, volatility: 13, maxDrawdown: -12 },
+  { ticker: "TSLA", name: "Tesla Inc.", sector: "Consumer Cyclical", price: 242.8, prevClose: 236.5,
+    pe: 62.1, epsGrowth: -6.4, divYield: 0, debtToEquity: 0.1, roe: 19, margin: 9.0,
+    high52: 488.5, low52: 182.0, beta: 2.3, volatility: 58, maxDrawdown: -52 },
+  { ticker: "NVDA", name: "NVIDIA Corp.", sector: "Technology", price: 121.4, prevClose: 123.9,
+    pe: 48.7, epsGrowth: 62.0, divYield: 0.03, debtToEquity: 0.4, roe: 115, margin: 55.6,
+    high52: 149.4, low52: 75.6, beta: 1.8, volatility: 49, maxDrawdown: -40 },
+  { ticker: "KO", name: "Coca-Cola Co.", sector: "Consumer Defensive", price: 71.2, prevClose: 70.9,
+    pe: 24.1, epsGrowth: 5.8, divYield: 2.9, debtToEquity: 1.6, roe: 42, margin: 23.1,
+    high52: 73.9, low52: 57.9, beta: 0.5, volatility: 14, maxDrawdown: -15 },
+];
+SAMPLE.forEach(s => { s._source = "Sample data (built-in)"; s._asOf = null; s._live = false; });
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const live = [];                       // live lookups, newest first
+const filters = { home: "all", history: "all" };
+const navStack = [];                   // back-navigation history
+let currentPage = "dashboard";
+let currentTicker = null;
+let themeMode = "system";              // "dark" | "light" | "system"
+let apiKey = "";                       // held in memory only
+const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
+
+/* =========================================================
+   PROVIDER ADAPTER: Financial Modeling Prep
+   ========================================================= */
+const cache = new Map();
+const CACHE_MS = 15 * 60 * 1000;
+
+async function fmpGet(path, key) {
+  const sep = path.includes("?") ? "&" : "?";
+  const res = await fetch(`${PROVIDER.base}${path}${sep}apikey=${encodeURIComponent(key)}`);
+  if (res.status === 401 || res.status === 403) throw new Error("Invalid or unauthorized API key.");
+  if (res.status === 429) throw new Error("Rate limit reached. Try again later.");
+  if (!res.ok) throw new Error(`Provider error (HTTP ${res.status}).`);
+  const json = await res.json();
+  if (json && json["Error Message"]) throw new Error(json["Error Message"]);
+  return json;
+}
+
+const num = v => (typeof v === "number" && isFinite(v)) ? v : null;
+
+async function fetchLive(ticker, key) {
+  const t = ticker.toUpperCase();
+  const cached = cache.get(t);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_MS) return cached.data;
+
+  const [quote, profileArr, ratios, metricsArr, growthArr] = await Promise.all([
+    fmpGet(`/quote/${t}`, key),
+    fmpGet(`/profile/${t}`, key),
+    fmpGet(`/ratios-ttm/${t}`, key),
+    fmpGet(`/key-metrics-ttm/${t}`, key),
+    fmpGet(`/financial-growth/${t}?period=annual&limit=1`, key),
+  ]);
+
+  const q = Array.isArray(quote) ? quote[0] : null;
+  if (!q) throw new Error(`No quote found for "${t}" from ${PROVIDER.name}.`);
+  const p = (Array.isArray(profileArr) && profileArr[0]) || {};
+  const r = (Array.isArray(ratios) && ratios[0]) || {};
+  const g = (Array.isArray(growthArr) && growthArr[0]) || {};
+
+  const stamp = new Date().toLocaleString();
+  const src = PROVIDER.name;
+  const pick = (value, field) => ({ value: num(value), source: src, asOf: stamp, field });
+
+  const data = {
+    ticker: t,
+    name: p.companyName || q.name || t,
+    sector: p.sector || "Unknown sector",
+    price: pick(q.price, "Price"),
+    prevClose: pick(q.previousClose, "Previous close"),
+    pe: pick(q.pe ?? r.priceEarningsRatioTTM, "P/E"),
+    epsGrowth: pick(g.epsgrowth != null ? g.epsgrowth * 100 : null, "EPS growth"),
+    divYield: pick(r.dividendYieldTTM != null ? r.dividendYieldTTM * 100 : null, "Dividend yield"),
+    debtToEquity: pick(r.debtEquityRatioTTM, "Debt/equity"),
+    roe: pick(r.returnOnEquityTTM != null ? r.returnOnEquityTTM * 100 : null, "ROE"),
+    margin: pick(r.netProfitMarginTTM != null ? r.netProfitMarginTTM * 100 : null, "Net margin"),
+    high52: pick(q.yearHigh, "52-week high"),
+    low52: pick(q.yearLow, "52-week low"),
+    beta: pick(p.beta, "Beta"),
+    volatility: pick(null, "Volatility"),
+    maxDrawdown: pick(null, "Max drawdown"),
+    _source: src, _asOf: stamp, _live: true,
+  };
+  cache.set(t, { data, fetchedAt: Date.now() });
+  return data;
+}
+
+/* =========================================================
+   ANALYSIS
+   ========================================================= */
+const V = (s, k) => {
+  const x = s[k];
+  if (x && typeof x === "object" && "value" in x) return x.value;
+  return x == null ? null : x;
+};
+
+function fundamentalScore(s) {
+  let pts = 0, max = 0;
+  const pe = V(s, "pe"), g = V(s, "epsGrowth"), roe = V(s, "roe"),
+        de = V(s, "debtToEquity"), dy = V(s, "divYield"), mg = V(s, "margin");
+  if (pe != null) { max += 20; pts += pe > 0 ? (pe <= 25 ? 20 : pe <= 40 ? 12 : pe <= 80 ? 5 : 0) : 0; }
+  if (g != null)  { max += 20; pts += g >= 15 ? 20 : g >= 5 ? 13 : g >= 0 ? 6 : 0; }
+  if (roe != null){ max += 20; pts += roe >= 20 ? 20 : roe >= 10 ? 12 : roe >= 5 ? 5 : 0; }
+  if (de != null) { max += 20; pts += de <= 0.5 ? 20 : de <= 1 ? 12 : de <= 2 ? 6 : 0; }
+  if (dy != null) { max += 10; pts += dy >= 2 ? 10 : dy > 0 ? 5 : 0; }
+  if (mg != null) { max += 10; pts += mg >= 20 ? 10 : mg >= 10 ? 5 : 0; }
+  if (max === 0) return null;
+  return Math.round((pts / max) * 100);
+}
+
+function riskScore(s) {
+  const vol = V(s, "volatility"), beta = V(s, "beta"), dd = V(s, "maxDrawdown");
+  const price = V(s, "price"), lo = V(s, "low52"), hi = V(s, "high52");
+  let pts = 0, max = 0;
+  if (vol != null)  { max += 35; pts += Math.min(35, (vol / 60) * 35); }
+  if (beta != null) { max += 25; pts += Math.min(25, Math.max(0, (beta / 2.5) * 25)); }
+  if (dd != null)   { max += 25; pts += Math.min(25, (Math.abs(dd) / 65) * 25); }
+  if (price != null && lo != null && hi != null && hi > lo) {
+    max += 15;
+    pts += Math.min(15, Math.max(0, (1 - (price - lo) / (hi - lo)) * 15));
+  }
+  if (max === 0) return null;
+  return Math.round((pts / max) * 100);
+}
+
+function riskTier(r) {
+  if (r == null) return { key: "unknown", label: "Unknown" };
+  if (r < 35) return { key: "low", label: "Low" };
+  if (r < 60) return { key: "moderate", label: "Moderate" };
+  return { key: "high", label: "High" };
+}
+
+function verdict(f, r) {
+  if (f == null || r == null) return "Not enough data to give a verdict";
+  if (f >= 65 && r < 40) return "Strong fundamentals with contained risk";
+  if (f >= 65 && r >= 40) return "Solid fundamentals but with notable volatility";
+  if (f >= 45 && r < 50) return "Balanced profile, worth monitoring";
+  if (f < 45 && r >= 50) return "Weak fundamentals and elevated risk";
+  return "Mixed signals, review carefully";
+}
+
+// Returns [{t: text, c: color}] for the "why this risk level" list
+function riskNotes(s) {
+  const notes = [];
+  const beta = V(s, "beta"), vol = V(s, "volatility"), dd = V(s, "maxDrawdown"),
+        de = V(s, "debtToEquity"), price = V(s, "price"), lo = V(s, "low52"), hi = V(s, "high52");
+  if (beta != null) {
+    if (beta >= 1.5) notes.push({ t: `Beta of ${beta}: tends to move more than the market.`, c: "var(--bad)" });
+    else if (beta <= 0.7) notes.push({ t: `Beta of ${beta}: tends to move less than the market.`, c: "var(--good)" });
+    else notes.push({ t: `Beta of ${beta}: moves roughly in line with the market.`, c: "var(--warn)" });
+  }
+  if (vol != null) {
+    if (vol >= 40) notes.push({ t: `High annualized volatility (${vol}%): large price swings.`, c: "var(--bad)" });
+    else if (vol <= 18) notes.push({ t: `Low annualized volatility (${vol}%): steadier prices.`, c: "var(--good)" });
+    else notes.push({ t: `Moderate annualized volatility (${vol}%).`, c: "var(--warn)" });
+  }
+  if (dd != null && dd <= -40) notes.push({ t: `Deep historical drawdown (${dd}%).`, c: "var(--bad)" });
+  if (de != null && de >= 2) notes.push({ t: `Elevated leverage (debt/equity ${de}) adds financial risk.`, c: "var(--bad)" });
+  if (price != null && lo != null && hi != null && hi > lo) {
+    const pos = (price - lo) / (hi - lo);
+    if (pos > 0.9) notes.push({ t: "Trading near its 52-week high; limited short-term upside may remain.", c: "var(--warn)" });
+    if (pos < 0.25) notes.push({ t: "Trading near its 52-week low; check whether the weakness is fundamental.", c: "var(--warn)" });
+  }
+  const missing = ["volatility", "maxDrawdown", "beta"].filter(k => V(s, k) == null);
+  if (missing.length) notes.push({ t: `Not available from the provider: ${missing.join(", ")}. Risk score uses only available inputs.`, c: "var(--muted)" });
+  return notes.length ? notes : [{ t: "No single factor dominates; risk is in the moderate range.", c: "var(--warn)" }];
+}
+
+// Six 0–100 sub-scores used for the radar chart
+function subScores(s) {
+  const clamp = x => Math.max(0, Math.min(100, x));
+  const pe = V(s, "pe"), g = V(s, "epsGrowth"), roe = V(s, "roe"),
+        de = V(s, "debtToEquity"), dy = V(s, "divYield"), mg = V(s, "margin");
+  return [
+    { label: "Value",   v: pe == null ? null : pe <= 0 ? 0 : clamp(100 - (pe - 15) * 2.5) },
+    { label: "Growth",  v: g == null ? null : clamp(50 + g * 2) },
+    { label: "Returns", v: roe == null ? null : clamp(roe * 4) },
+    { label: "Balance", v: de == null ? null : clamp(100 - de * 40) },
+    { label: "Income",  v: dy == null ? null : clamp(dy * 40) },
+    { label: "Margin",  v: mg == null ? null : clamp(mg * 4) },
+  ];
+}
+
+function fmt(n, d = 2) { return n == null ? "N/A" : Number(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+function pct(n, d = 2) { return n == null ? "N/A" : (n >= 0 ? "+" : "") + fmt(n, d) + "%"; }
+function avg(arr) { return arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null; }
+function tierColor(k) {
+  return k === "low" ? "var(--good)" : k === "moderate" ? "var(--warn)" : k === "high" ? "var(--bad)" : "var(--muted)";
+}
+
+function enrich(s) {
+  const f = fundamentalScore(s), r = riskScore(s), t = riskTier(r);
+  const price = V(s, "price"), prev = V(s, "prevClose");
+  const change = price != null && prev ? ((price - prev) / prev) * 100 : null;
+  return { s, f, r, t, price, change };
+}
+
+/* =========================================================
+   CHART BUILDERS (pure SVG / HTML, theme-aware)
+   ========================================================= */
+
+// Donut: parts = [{v, color, label}]
+function donutSVG(parts) {
+  const total = parts.reduce((a, p) => a + p.v, 0);
+  let off = 0;
+  const segs = total ? parts.filter(p => p.v > 0).map(p => {
+    const pc = (p.v / total) * 100;
+    const el = `<circle cx="50" cy="50" r="40" pathLength="100" stroke-dasharray="${pc} ${100 - pc}" stroke-dashoffset="${-off}" style="fill:none;stroke:${p.color};stroke-width:12"/>`;
+    off += pc;
+    return el;
+  }).join("") : "";
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="40" pathLength="100" style="fill:none;stroke:var(--card-2);stroke-width:12"/>${segs}</svg>`;
+}
+function donutHTML(parts, centerNum, centerLabel) {
+  return `<div class="donut">${donutSVG(parts)}<div class="donut-center"><b>${centerNum}</b><span>${centerLabel}</span></div></div>`;
+}
+
+// Semicircle gauge for a 0–100 value
+function gaugeHTML(v, label, o = {}) {
+  const color = o.color || "var(--accent)";
+  const track = o.track || "var(--card-2)";
+  const text = o.text || "var(--text)";
+  const cap = o.cap || "var(--muted)";
+  const val = v == null ? 0 : Math.max(0, Math.min(100, v));
+  const arc = "M10 60 A50 50 0 0 1 110 60";
+  const fill = val > 0
+    ? `<path d="${arc}" pathLength="100" stroke-dasharray="${val} 100" style="fill:none;stroke:${color};stroke-width:10;stroke-linecap:round"/>`
+    : "";
+  return `<div class="gauge">
+    <svg viewBox="0 0 120 66" aria-hidden="true">
+      <path d="${arc}" pathLength="100" style="fill:none;stroke:${track};stroke-width:10;stroke-linecap:round"/>
+      ${fill}
+    </svg>
+    <div class="gauge-val" style="color:${text}">${v == null ? "N/A" : Math.round(v)}</div>
+    <div class="gauge-cap" style="color:${cap}">${label}</div>
+  </div>`;
+}
+
+// Radar chart for six 0–100 axes
+function radarSVG(axes) {
+  const N = axes.length, cx = 140, cy = 130, R = 78;
+  const pt = (i, r) => {
+    const a = (-90 + (i * 360) / N) * Math.PI / 180;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  };
+  let grid = "";
+  [25, 50, 75, 100].forEach(p => {
+    const pts = axes.map((_, i) => pt(i, (R * p) / 100).map(n => n.toFixed(1)).join(",")).join(" ");
+    grid += `<polygon points="${pts}" style="fill:none;stroke:var(--border);stroke-width:1"/>`;
+  });
+  const spokes = axes.map((_, i) => {
+    const [x, y] = pt(i, R);
+    return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" style="stroke:var(--border)"/>`;
+  }).join("");
+  const dataPts = axes.map((a, i) => pt(i, (R * (a.v ?? 0)) / 100).map(n => n.toFixed(1)).join(",")).join(" ");
+  const dots = axes.map((a, i) => {
+    const [x, y] = pt(i, (R * (a.v ?? 0)) / 100);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" style="fill:var(--accent)"/>`;
+  }).join("");
+  const labels = axes.map((a, i) => {
+    const [x, y] = pt(i, R + 24);
+    const anchor = Math.abs(x - cx) < 6 ? "middle" : (x < cx ? "end" : "start");
+    const val = a.v == null ? "N/A" : Math.round(a.v);
+    return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${anchor}" class="axis" style="font-size:11px;fill:var(--text)">${a.label} <tspan style="fill:var(--muted)">${val}</tspan></text>`;
+  }).join("");
+  return `<svg viewBox="0 0 280 260" role="img" aria-label="Fundamental profile radar chart">
+    ${grid}${spokes}
+    <polygon points="${dataPts}" style="fill:var(--accent);fill-opacity:.22;stroke:var(--accent);stroke-width:2"/>
+    ${dots}${labels}
+  </svg>`;
+}
+
+// Scatter: fundamentals (x) vs risk (y)
+function scatterSVG(items) {
+  const W = 300, H = 230, L = 36, R = 16, T = 14, B = 30;
+  const X = f => L + (f / 100) * (W - L - R);
+  const Y = r => H - B - (r / 100) * (H - T - B);
+  const grid = `
+    <line x1="${X(50)}" y1="${T}" x2="${X(50)}" y2="${H - B}" style="stroke:var(--border);stroke-dasharray:3 3"/>
+    <line x1="${L}" y1="${Y(50)}" x2="${W - R}" y2="${Y(50)}" style="stroke:var(--border);stroke-dasharray:3 3"/>
+    <line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" style="stroke:var(--border)"/>
+    <line x1="${L}" y1="${T}" x2="${L}" y2="${H - B}" style="stroke:var(--border)"/>`;
+  const axisText = `
+    <text x="${W - R}" y="${H - 8}" text-anchor="end" class="axis">Fundamentals →</text>
+    <text x="${L + 4}" y="${T + 10}" class="axis">↑ Risk</text>`;
+  const dots = items.map(e => {
+    const cx = X(e.f), cy = Y(e.r);
+    const flip = cx > W - 60;
+    const tx = flip ? cx - 9 : cx + 9;
+    return `
+      <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" style="fill:${tierColor(e.t.key)};stroke:var(--card-solid);stroke-width:2"/>
+      <text x="${tx.toFixed(1)}" y="${(cy + 3.5).toFixed(1)}" text-anchor="${flip ? "end" : "start"}" class="axis" style="fill:var(--text);font-weight:600">${e.s.ticker}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Fundamentals versus risk scatter chart">${grid}${axisText}${dots}</svg>`;
+}
+
+// Horizontal bars: items = [{label, v, color?, display?}]
+function barRowsHTML(items) {
+  return items.map(i => {
+    const w = Math.max(0, Math.min(100, i.v ?? 0));
+    const bg = i.color ? `background:${i.color}` : "";
+    return `<div class="brow">
+      <span class="blabel">${i.label}</span>
+      <div class="bar"><span style="width:${w}%;${bg}"></span></div>
+      <b>${i.display ?? (i.v ?? "N/A")}</b>
+    </div>`;
+  }).join("");
+}
+
+// 52-week range with price marker
+function rangeHTML(price, lo, hi) {
+  if (price == null || lo == null || hi == null || hi <= lo) return `<p class="hint">Range not available.</p>`;
+  const pos = Math.max(0, Math.min(100, ((price - lo) / (hi - lo)) * 100));
+  return `<div class="range"><span class="dot" style="left:${pos.toFixed(1)}%"></span></div>
+    <div class="range-labels"><span>Low $${fmt(lo)}</span><span>${pos.toFixed(0)}% of range</span><span>High $${fmt(hi)}</span></div>`;
+}
+
+const HERO = { color: "#fff", track: "rgba(255,255,255,.28)", text: "#fff", cap: "rgba(255,255,255,.9)" };
+
+/* =========================================================
+   VIEW HELPERS
+   ========================================================= */
+function badgeHTML(key, label) { return `<span class="badge ${key}">${label}</span>`; }
+
+function metricHtml(label, field, fmtFn) {
+  const v = field && typeof field === "object" && "value" in field ? field.value : field;
+  const isLive = field && typeof field === "object" && "source" in field;
+  const shown = v == null ? `<span class="na">Not available</span>` : fmtFn(v);
+  const src = isLive ? `${field.source} · ${field.asOf}` : "Sample data";
+  return `<div class="metric"><div class="label">${label}</div><div class="value">${shown}</div><div class="src">${src}</div></div>`;
+}
+
+function cardHtml(s) {
+  const e = enrich(s);
+  const dClass = e.change == null ? "flat" : e.change >= 0 ? "up" : "down";
+  const footText = s._live ? `${s._source} · ${s._asOf}` : "Sample data";
+  return `
+    <div class="card clickable" data-open="${s.ticker}">
+      <div class="stock-head">
+        <div class="avatar">${s.ticker.slice(0, 2)}</div>
+        <div class="stock-meta">
+          <div class="ticker">${s.ticker}</div>
+          <div class="name">${s.name}</div>
+        </div>
+        <div class="price-col">
+          <div class="price">${e.price == null ? "N/A" : "$" + fmt(e.price)}</div>
+          <div class="delta ${dClass}">${pct(e.change)}</div>
+        </div>
+      </div>
+      <div class="stock-metrics">
+        <div>
+          <div class="mini-label"><span>Fundamentals</span><b>${e.f ?? "N/A"}</b></div>
+          <div class="bar"><span style="width:${e.f ?? 0}%"></span></div>
+        </div>
+        <div>
+          <div class="mini-label"><span>Risk</span><b>${e.r ?? "N/A"}</b></div>
+          <div class="bar"><span style="width:${e.r ?? 0}%;background:${tierColor(e.t.key)}"></span></div>
+        </div>
+      </div>
+      <div class="card-foot"><span>${badgeHTML(e.t.key, e.t.label)}</span><span>${footText}</span></div>
+    </div>`;
+}
+
+function miniCard(e) {
+  return `
+    <div class="card clickable" data-open="${e.s.ticker}">
+      <div class="stock-head">
+        <div class="avatar">${e.s.ticker.slice(0, 2)}</div>
+        <div class="stock-meta">
+          <div class="ticker">${e.s.ticker}</div>
+          <div class="name">${e.s.name}</div>
+        </div>
+        <div class="price-col">
+          ${badgeHTML(e.t.key, e.t.label)}
+          <div class="muted" style="font-size:12px;margin-top:6px">Risk score ${e.r ?? "N/A"}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* =========================================================
+   RENDERERS
+   ========================================================= */
+function renderDashboard() {
+  const sample = SAMPLE.map(enrich);
+  const total = sample.length;
+  const cnt = k => sample.filter(e => e.t.key === k).length;
+  const parts = [
+    { v: cnt("low"), color: "var(--good)", label: "Low" },
+    { v: cnt("moderate"), color: "var(--warn)", label: "Moderate" },
+    { v: cnt("high"), color: "var(--bad)", label: "High" },
+  ];
+  const avgF = avg(sample.map(e => e.f).filter(x => x != null));
+  const avgR = avg(sample.map(e => e.r).filter(x => x != null));
+  const byF = sample.filter(e => e.f != null).sort((a, b) => b.f - a.f);
+  const byR = sample.filter(e => e.r != null).sort((a, b) => b.r - a.r);
+  const highShare = total ? Math.round((cnt("high") / total) * 100) : 0;
+  const plotItems = sample.filter(e => e.f != null && e.r != null);
+  const liveE = live.map(enrich);
+
+  document.getElementById("dashboardContent").innerHTML = `
+    <div class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="hero-kicker">Watchlist overview</div>
+          <div class="hero-title">${total} stocks tracked</div>
+        </div>
+        <span class="hero-tag">${live.length ? live.length + " live" : "Sample data"}</span>
+      </div>
+      <div class="hero-row">
+        ${gaugeHTML(avgF, "Avg fundamentals", HERO)}
+        ${gaugeHTML(avgR, "Avg risk", HERO)}
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Stocks tracked</div><div class="n">${total}</div></div>
+      <div class="stat"><div class="label">Live lookups</div><div class="n">${live.length}</div></div>
+      <div class="stat"><div class="label">High-risk share</div><div class="n" style="color:var(--bad)">${highShare}%</div></div>
+      <div class="stat"><div class="label">Top fundamentals</div><div class="n" style="font-size:20px">${byF[0] ? byF[0].s.ticker : "N/A"}</div></div>
+    </div>
+
+    <div class="section-title">Risk distribution</div>
+    <div class="card split-card">
+      ${donutHTML(parts, total, "stocks")}
+      <div class="legend">
+        ${parts.map(p => `<div><span class="dot-c" style="background:${p.color}"></span><span>${p.label}</span><b>${p.v}</b></div>`).join("")}
+      </div>
+    </div>
+
+    <div class="section-title">Fundamentals vs risk</div>
+    <div class="card">
+      ${plotItems.length ? scatterSVG(plotItems) : `<p class="hint">Not enough data to plot.</p>`}
+      <p class="hint">Bottom right: stronger fundamentals with lower risk. Top left: weaker fundamentals with higher risk.</p>
+    </div>
+
+    <div class="section-title">Top fundamentals</div>
+    <div class="card">
+      ${barRowsHTML(byF.slice(0, 5).map(e => ({ label: e.s.ticker, v: e.f })))}
+    </div>
+
+    <div class="section-title">Highest risk</div>
+    ${byR[0] ? miniCard(byR[0]) : `<div class="card"><p class="hint">No risk data.</p></div>`}
+
+    <div class="section-title">Live data</div>
+    ${liveE.length
+      ? `<div class="card">
+           ${barRowsHTML(liveE.map(e => ({ label: e.s.ticker, v: e.f, display: e.f ?? "N/A" })))}
+           <p class="hint">Fundamentals scores for your live lookups this session.</p>
+         </div>`
+      : `<div class="card"><p class="hint">No live lookups yet. Add your API key in Settings, then search a ticker on the Lookup tab.</p></div>`}
+  `;
+}
+
+function renderWatchlist() {
+  const f = filters.home;
+  let rows = SAMPLE.map(enrich);
+  if (f !== "all") rows = rows.filter(e => e.t.key === f);
+  document.getElementById("list").innerHTML =
+    rows.map(e => cardHtml(e.s)).join("") || `<div class="empty">No sample stocks match this filter.</div>`;
+}
+
+function renderRecent() {
+  const rows = live.slice(0, 5);
+  document.getElementById("recentHeading").classList.toggle("hidden", rows.length === 0);
+  document.getElementById("recentList").innerHTML = rows.map(cardHtml).join("");
+}
+
+function renderLookupChips() {
+  document.getElementById("sampleChips").innerHTML =
+    SAMPLE.map(s => `<button class="chip" data-open="${s.ticker}">${s.ticker}</button>`).join("");
+}
+
+function renderHistory() {
+  const f = filters.history;
+  let rows = live.map(enrich);
+  if (f !== "all") rows = rows.filter(e => e.t.key === f);
+
+  const summary = document.getElementById("historySummary");
+  if (live.length) {
+    const lf = live.map(enrich);
+    summary.innerHTML = `
+      <div class="card">
+        <div class="hint" style="margin:0 0 8px">Fundamentals by lookup</div>
+        ${barRowsHTML(lf.map(e => ({ label: e.s.ticker, v: e.f, display: e.f ?? "N/A" })))}
+      </div>`;
+  } else {
+    summary.innerHTML = "";
+  }
+
+  document.getElementById("historyList").innerHTML = rows.map(e => cardHtml(e.s)).join("");
+  document.getElementById("historyEmpty").classList.toggle("hidden", live.length > 0);
+}
+
+function detailHtml(s) {
+  const f = fundamentalScore(s), r = riskScore(s), t = riskTier(r);
+  const price = V(s, "price"), prev = V(s, "prevClose");
+  const change = price != null && prev ? ((price - prev) / prev) * 100 : null;
+  const lo = V(s, "low52"), hi = V(s, "high52");
+  const note = s._live
+    ? `Live data from ${s._source}, retrieved ${s._asOf}. Each metric shows its own source and time.`
+    : `Built-in sample data for demonstration. Use Lookup to fetch live data.`;
+  const dClass = change == null ? "flat" : change >= 0 ? "up" : "down";
+
+  return `
+    <div class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="hero-kicker">${s.sector}</div>
+          <div class="hero-title">${s.ticker}</div>
+          <div class="hero-sub">${s.name}</div>
+        </div>
+        <span class="hero-tag">${s._live ? "Live" : "Sample"}</span>
+      </div>
+      <div class="hero-price">${price == null ? "N/A" : "$" + fmt(price)}</div>
+      <div class="hero-delta">${change == null ? "Change not available" : pct(change) + " today"}</div>
+      <div class="hero-row">
+        ${gaugeHTML(f, "Fundamentals", HERO)}
+        ${gaugeHTML(r, "Risk · " + t.label, HERO)}
+      </div>
+      <div class="verdict-hero">${verdict(f, r)}.</div>
+    </div>
+
+    <div class="notice">${note}</div>
+
+    <div class="section-title">Fundamental profile</div>
+    <div class="card">
+      <div class="radar">${radarSVG(subScores(s))}</div>
+      <p class="hint" style="text-align:center">Each axis is scored 0–100. Axes without data are drawn at 0.</p>
+    </div>
+
+    <div class="section-title">Valuation & fundamentals</div>
+    <div class="metrics">
+      ${metricHtml("P/E ratio", s.pe, v => fmt(v, 1))}
+      ${metricHtml("EPS growth", s.epsGrowth, v => pct(v, 1))}
+      ${metricHtml("Dividend yield", s.divYield, v => fmt(v, 2) + "%")}
+      ${metricHtml("Return on equity", s.roe, v => fmt(v, 1) + "%")}
+      ${metricHtml("Net margin", s.margin, v => fmt(v, 1) + "%")}
+      ${metricHtml("Debt / equity", s.debtToEquity, v => fmt(v, 2))}
+    </div>
+
+    <div class="section-title">Risk profile</div>
+    <div class="metrics">
+      ${metricHtml("Beta", s.beta, v => fmt(v, 2))}
+      ${metricHtml("Volatility (ann.)", s.volatility, v => v + "%")}
+      ${metricHtml("Max drawdown", s.maxDrawdown, v => v + "%")}
+    </div>
+
+    <div class="card">
+      <div class="hint" style="margin:0">Price within the 52-week range</div>
+      ${rangeHTML(price, lo, hi)}
+    </div>
+
+    <div class="section-title">Why this risk level</div>
+    <div class="card">
+      ${riskNotes(s).map(n => `<div class="note"><i style="background:${n.c}"></i><span>${n.t}</span></div>`).join("")}
+    </div>
+  `;
+}
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+function setPage(page, ticker = null) {
+  currentPage = page;
+  currentTicker = ticker;
+
+  if (page === "dashboard") renderDashboard();
+  if (page === "home") renderWatchlist();
+  if (page === "lookup") { renderLookupChips(); renderRecent(); }
+  if (page === "history") renderHistory();
+
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === `page-${page}`));
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.page === page));
+  document.getElementById("backBtn").classList.toggle("show", !TABS.includes(page) && navStack.length > 0);
+  document.getElementById("pageTitle").textContent =
+    page === "detail" ? (ticker || "Stock detail") : document.getElementById(`page-${page}`).dataset.title;
+  window.scrollTo({ top: 0 });
+}
+
+function showPage(page, { push = true, ticker = null } = {}) {
+  if (push && page !== currentPage) navStack.push({ page: currentPage, ticker: currentTicker });
+  setPage(page, ticker);
+}
+
+function goBack() {
+  if (!navStack.length) return setPage("dashboard");
+  const prev = navStack.pop();
+  setPage(prev.page, prev.ticker);
+}
+
+function openDetail(ticker) {
+  const s = [...live, ...SAMPLE].find(x => x.ticker === ticker);
+  if (!s) return;
+  document.getElementById("detailContent").innerHTML = detailHtml(s);
+  showPage("detail", { ticker });
+}
+
+/* =========================================================
+   LOOKUP + SETTINGS
+   ========================================================= */
+async function lookup() {
+  const input = document.getElementById("ticker");
+  const btn = document.getElementById("lookupBtn");
+  const t = input.value.trim().toUpperCase();
+  if (!t) return;
+
+  if (!apiKey) {
+    if (SAMPLE.find(s => s.ticker === t)) return openDetail(t);
+    alert("Set your Financial Modeling Prep API key in Settings to look up live tickers.");
+    return showPage("settings");
+  }
+
+  btn.disabled = true; btn.textContent = "Loading…";
+  try {
+    const data = await fetchLive(t, apiKey);
+    const idx = live.findIndex(x => x.ticker === t);
+    if (idx >= 0) live.splice(idx, 1);
+    live.unshift(data);
+    renderRecent();
+    renderHistory();
+    openDetail(t);
+  } catch (err) {
+    alert(err.message || "Lookup failed. Check your connection and key.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Look up";
+  }
+}
+
+function saveKey() {
+  apiKey = document.getElementById("apiKey").value.trim();
+  document.getElementById("keyStatus").textContent = apiKey
+    ? "Key set for this session. Live lookups are enabled."
+    : "No key set. Live lookups are disabled.";
+}
+
+/* =========================================================
+   APPEARANCE
+   ========================================================= */
+function effectiveTheme() {
+  if (themeMode === "system") return darkMq.matches ? "dark" : "light";
+  return themeMode;
+}
+
+function applyTheme() {
+  const eff = effectiveTheme();
+  document.documentElement.setAttribute("data-theme", eff);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", eff === "dark" ? "#0a1020" : "#eef3f9");
+  document.querySelectorAll("#themeSeg button").forEach(b =>
+    b.classList.toggle("active", b.dataset.theme === themeMode));
+}
+
+function setTheme(mode) {
+  themeMode = mode;
+  applyTheme();
+}
+
+darkMq.addEventListener("change", () => { if (themeMode === "system") applyTheme(); });
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+document.getElementById("bottomNav").addEventListener("click", e => {
+  const btn = e.target.closest(".nav-item");
+  if (!btn) return;
+  navStack.length = 0;
+  showPage(btn.dataset.page, { push: false });
+});
+
+document.getElementById("backBtn").addEventListener("click", goBack);
+
+// One delegated listener handles stock cards, chips, and filter pills
+document.addEventListener("click", e => {
+  const open = e.target.closest("[data-open]");
+  if (open) { openDetail(open.dataset.open); return; }
+
+  const pill = e.target.closest(".pill[data-filter]");
+  if (pill) {
+    const group = pill.closest("[data-group]");
+    if (!group) return;
+    filters[group.dataset.group] = pill.dataset.filter;
+    group.querySelectorAll(".pill").forEach(p => p.classList.toggle("active", p === pill));
+    if (group.dataset.group === "home") renderWatchlist();
+    else renderHistory();
+  }
+});
+
+document.getElementById("lookupBtn").addEventListener("click", lookup);
+document.getElementById("ticker").addEventListener("keydown", e => { if (e.key === "Enter") lookup(); });
+document.getElementById("saveKeyBtn").addEventListener("click", saveKey);
+document.getElementById("themeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button[data-theme]");
+  if (b) setTheme(b.dataset.theme);
+});
+
+/* =========================================================
+   START
+   ========================================================= */
+applyTheme();
+renderWatchlist();
+renderLookupChips();
+renderRecent();
+renderHistory();
+setPage("dashboard");
+</script>
+</body>
+</html>
